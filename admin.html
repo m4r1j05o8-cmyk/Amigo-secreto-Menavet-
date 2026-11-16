@@ -12,7 +12,7 @@ body{
  background:#f4f5f6;color:#333;
 }
 .card{
- max-width:850px;margin:30px auto;background:white;
+ max-width:1000px;margin:30px auto;background:white;
  padding:25px;border-radius:16px;
  box-shadow:0 5px 25px #0001;
 }
@@ -22,16 +22,18 @@ input{
  border-radius:8px;font-size:16px;
 }
 button{
- width:100%;padding:14px;margin-top:15px;
+ padding:12px;margin-top:8px;
  border:0;border-radius:8px;background:#b51f2b;
- color:white;font-size:16px;font-weight:bold;
+ color:white;font-size:14px;font-weight:bold;
 }
+#boton{width:100%;padding:14px;margin-top:15px;font-size:16px}
+button:disabled{opacity:.6}
 #mensaje{text-align:center;margin-top:15px}
 #panel{display:none;margin-top:25px}
 .tabla-contenedor{overflow-x:auto}
 table{
  width:100%;border-collapse:collapse;
- min-width:550px;
+ min-width:650px;
 }
 th,td{
  padding:12px;border-bottom:1px solid #ddd;
@@ -64,6 +66,7 @@ th{background:#f9eeee;color:#9f1d28}
       <th>Participante</th>
       <th>Destinatario</th>
       <th>Lista de deseos</th>
+      <th>Cambiar asignación</th>
      </tr>
     </thead>
     <tbody id="filas"></tbody>
@@ -79,10 +82,100 @@ const mensaje = document.getElementById("mensaje");
 const panel = document.getElementById("panel");
 const filas = document.getElementById("filas");
 
+let adminPasswordActual = "";
+
+async function cargarPanel(){
+ const respuesta = await fetch("/api/admin", {
+  method:"POST",
+  headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({password:adminPasswordActual})
+ });
+
+ const datos = await respuesta.json();
+
+ if(!respuesta.ok){
+  throw new Error(datos.error || "No se pudo consultar.");
+ }
+
+ filas.replaceChildren();
+
+ datos.participantes.forEach(persona => {
+  const fila = document.createElement("tr");
+
+  const nombre = document.createElement("td");
+  nombre.textContent = persona.nombre;
+
+  const destinatario = document.createElement("td");
+  destinatario.textContent = persona.destinatario;
+
+  const deseos = document.createElement("td");
+  deseos.textContent = persona.lista_deseos || "Sin lista";
+
+  const acciones = document.createElement("td");
+  const cambiar = document.createElement("button");
+
+  cambiar.textContent = "CAMBIAR AMIGO";
+  cambiar.type = "button";
+
+  cambiar.addEventListener("click", async function(){
+   const confirmar = confirm(
+    "¿Querés cambiar el amigo secreto de " +
+    persona.nombre +
+    "?\n\nTambién cambiará la asignación de otra persona."
+   );
+
+   if(!confirmar) return;
+
+   cambiar.disabled = true;
+   cambiar.textContent = "CAMBIANDO...";
+   mensaje.textContent = "";
+
+   try{
+    const respuestaCambio = await fetch(
+     "/api/cambiar-asignacion",
+     {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+       password:adminPasswordActual,
+       name:persona.nombre
+      })
+     }
+    );
+
+    const resultado = await respuestaCambio.json();
+
+    if(!respuestaCambio.ok){
+     throw new Error(
+      resultado.error || "No se pudo cambiar la asignación."
+     );
+    }
+
+    await cargarPanel();
+    mensaje.textContent = "¡Asignación cambiada correctamente!";
+
+   }catch(error){
+    mensaje.textContent = error.message;
+    cambiar.disabled = false;
+    cambiar.textContent = "CAMBIAR AMIGO";
+   }
+  });
+
+  acciones.appendChild(cambiar);
+  fila.append(nombre,destinatario,deseos,acciones);
+  filas.appendChild(fila);
+ });
+
+ document.getElementById("total").textContent =
+  "Participantes registrados: " + datos.participantes.length;
+
+ panel.style.display = "block";
+}
+
 formulario.addEventListener("submit", async function(event){
  event.preventDefault();
 
- const password = document.getElementById("password").value;
+ adminPasswordActual = document.getElementById("password").value;
 
  boton.disabled = true;
  boton.textContent = "CONSULTANDO...";
@@ -91,41 +184,10 @@ formulario.addEventListener("submit", async function(event){
  filas.replaceChildren();
 
  try{
-  const respuesta = await fetch("/api/admin", {
-   method:"POST",
-   headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({password})
-  });
-
-  const datos = await respuesta.json();
-
-  if(!respuesta.ok){
-   throw new Error(datos.error || "No se pudo ingresar.");
-  }
-
-  datos.participantes.forEach(persona => {
-   const fila = document.createElement("tr");
-
-   const nombre = document.createElement("td");
-   nombre.textContent = persona.nombre;
-
-   const destinatario = document.createElement("td");
-   destinatario.textContent = persona.destinatario;
-
-   const deseos = document.createElement("td");
-   deseos.textContent = persona.lista_deseos || "Sin lista";
-
-   fila.append(nombre,destinatario,deseos);
-   filas.appendChild(fila);
-  });
-
-  document.getElementById("total").textContent =
-   "Participantes registrados: " + datos.participantes.length;
-
-  panel.style.display = "block";
+  await cargarPanel();
   mensaje.textContent = "Acceso correcto.";
-
  }catch(error){
+  adminPasswordActual = "";
   mensaje.textContent = error.message ||
    "Ocurrió un error. Intentá nuevamente.";
  }finally{
@@ -136,3 +198,4 @@ formulario.addEventListener("submit", async function(event){
 </script>
 </body>
 </html>
+
