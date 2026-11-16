@@ -28,7 +28,10 @@ module.exports = async (req, res) => {
     const secret = process.env.SUPABASE_SECRET_KEY;
 
     if (!url || !secret) {
-      throw new Error("Configuración incompleta");
+      console.error("Falta configuración de Supabase");
+      return res.status(500).json({
+        error: "Configuración incompleta"
+      });
     }
 
     const response = await fetch(
@@ -37,7 +40,8 @@ module.exports = async (req, res) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "apikey": secret
+          "apikey": secret,
+          "Authorization": `Bearer ${secret}`
         },
         body: JSON.stringify({
           p_nombre: name.trim(),
@@ -47,23 +51,31 @@ module.exports = async (req, res) => {
     );
 
     if (!response.ok) {
-      throw new Error("Error consultando el sorteo");
+      const detail = await response.text();
+      console.error("Error de Supabase:", response.status, detail);
+
+      return res.status(500).json({
+        error: "No se pudo consultar el sorteo"
+      });
     }
 
     const data = await response.json();
+    const resultado = Array.isArray(data) ? data[0] : data;
 
-    if (!data || data.length === 0) {
+    if (!resultado || !resultado.destinatario) {
       return res.status(401).json({
         error: "Datos incorrectos o sorteo pendiente"
       });
     }
 
     return res.status(200).json({
-      destinatario: data[0].destinatario,
-      lista_deseos: data[0].lista_deseos
+      destinatario: resultado.destinatario,
+      lista_deseos: resultado.lista_deseos
     });
 
   } catch (error) {
+    console.error("Error de inicio de sesión:", error);
+
     return res.status(500).json({
       error: "No se pudo consultar el sorteo"
     });
