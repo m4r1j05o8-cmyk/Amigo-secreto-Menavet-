@@ -23,10 +23,11 @@ h1{color:#b51f2b;font-size:25px;margin-top:25px}
 .gift{font-size:55px;margin:15px}
 .info{background:#f9eeee;padding:15px;border-radius:12px;margin:20px 0;line-height:1.8}
 label{display:block;text-align:left;margin:15px 0 6px;font-weight:bold}
-input{
+input,textarea{
  width:100%;padding:14px;border:1px solid #ddd;
- border-radius:9px;font-size:16px;
+ border-radius:9px;font-size:16px;font-family:Arial,sans-serif;
 }
+textarea{min-height:120px;resize:vertical}
 button{
  width:100%;padding:15px;margin-top:20px;border:0;
  border-radius:9px;background:#b51f2b;color:white;
@@ -34,12 +35,18 @@ button{
 }
 button:disabled{opacity:.6}
 .footer{font-size:12px;color:#888;margin-top:25px}
-#mensaje{margin-top:15px;font-size:14px}
+#mensaje,#mensajeLista{margin-top:15px;font-size:14px}
 #resultado{
  display:none;margin-top:22px;padding:18px;
  background:#f9eeee;border-radius:12px;line-height:1.7;
 }
 #destinatario{font-size:23px;color:#b51f2b;font-weight:bold}
+#seccionDeseos{
+ display:none;margin-top:20px;padding:18px;
+ background:#f7f7f7;border-radius:12px;text-align:left;
+}
+#seccionDeseos h3{text-align:center;color:#b51f2b}
+#lista{margin-top:12px}
 </style>
 </head>
 <body>
@@ -77,7 +84,17 @@ button:disabled{opacity:.6}
  <div id="resultado">
   <h3>🎁 ¡Tu amigo secreto es!</h3>
   <div id="destinatario"></div>
+
   <div id="lista"></div>
+
+  <div id="seccionDeseos">
+   <h3>📝 Mi lista de deseos</h3>
+   <p>Escribe qué te gustaría recibir:</p>
+   <textarea id="misDeseos" maxlength="1000"
+    placeholder="Ejemplo: ropa, accesorios, libros, cosas que me gustan..."></textarea>
+   <button id="guardar" type="button">GUARDAR MI LISTA</button>
+   <div id="mensajeLista" role="status"></div>
+  </div>
  </div>
 
  <div class="footer">
@@ -90,6 +107,11 @@ const formulario = document.getElementById("formulario");
 const boton = document.getElementById("boton");
 const mensaje = document.getElementById("mensaje");
 const resultado = document.getElementById("resultado");
+const seccionDeseos = document.getElementById("seccionDeseos");
+const guardar = document.getElementById("guardar");
+
+let participanteActual = "";
+let pinActual = "";
 
 formulario.addEventListener("submit", async function(event){
  event.preventDefault();
@@ -101,6 +123,7 @@ formulario.addEventListener("submit", async function(event){
  boton.textContent = "CONSULTANDO...";
  mensaje.textContent = "";
  resultado.style.display = "none";
+ seccionDeseos.style.display = "none";
 
  try{
   const respuesta = await fetch("/api/login", {
@@ -115,6 +138,9 @@ formulario.addEventListener("submit", async function(event){
    throw new Error(datos.error || "No se pudo ingresar.");
   }
 
+  participanteActual = nombre;
+  pinActual = pin;
+
   document.getElementById("destinatario").textContent =
    datos.destinatario;
 
@@ -123,13 +149,18 @@ formulario.addEventListener("submit", async function(event){
 
   if(datos.lista_deseos){
    const titulo = document.createElement("h3");
-   titulo.textContent = "🎄 Lista de deseos";
+   titulo.textContent = "🎄 Lo que le gustaría recibir";
    const contenido = document.createElement("p");
    contenido.textContent = datos.lista_deseos;
    lista.append(titulo,contenido);
+  }else{
+   lista.textContent = "Esta persona todavía no ha escrito su lista de deseos.";
   }
 
+  document.getElementById("misDeseos").value = "";
+  document.getElementById("mensajeLista").textContent = "";
   resultado.style.display = "block";
+  seccionDeseos.style.display = "block";
   mensaje.textContent = "Ingreso correcto.";
 
  }catch(error){
@@ -138,6 +169,47 @@ formulario.addEventListener("submit", async function(event){
  }finally{
   boton.disabled = false;
   boton.textContent = "INGRESAR";
+ }
+});
+
+guardar.addEventListener("click", async function(){
+ const wishlist = document.getElementById("misDeseos").value.trim();
+ const mensajeLista = document.getElementById("mensajeLista");
+
+ if(!wishlist){
+  mensajeLista.textContent = "Escribí algo antes de guardar.";
+  return;
+ }
+
+ guardar.disabled = true;
+ guardar.textContent = "GUARDANDO...";
+ mensajeLista.textContent = "";
+
+ try{
+  const respuesta = await fetch("/api/guardar-lista", {
+   method:"POST",
+   headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({
+    name:participanteActual,
+    pin:pinActual,
+    wishlist:wishlist
+   })
+  });
+
+  const datos = await respuesta.json();
+
+  if(!respuesta.ok){
+   throw new Error(datos.error || "No se pudo guardar la lista.");
+  }
+
+  mensajeLista.textContent = "¡Tu lista se guardó correctamente! 🎁";
+
+ }catch(error){
+  mensajeLista.textContent = error.message ||
+   "Ocurrió un error al guardar.";
+ }finally{
+  guardar.disabled = false;
+  guardar.textContent = "GUARDAR MI LISTA";
  }
 });
 </script>
