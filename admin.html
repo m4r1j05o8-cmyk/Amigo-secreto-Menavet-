@@ -1,0 +1,138 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Administración - Menavet</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;padding:20px;font-family:Arial,sans-serif;
+ background:#f4f5f6;color:#333;
+}
+.card{
+ max-width:850px;margin:30px auto;background:white;
+ padding:25px;border-radius:16px;
+ box-shadow:0 5px 25px #0001;
+}
+h1,h2{color:#b51f2b;text-align:center}
+input{
+ width:100%;padding:14px;border:1px solid #ddd;
+ border-radius:8px;font-size:16px;
+}
+button{
+ width:100%;padding:14px;margin-top:15px;
+ border:0;border-radius:8px;background:#b51f2b;
+ color:white;font-size:16px;font-weight:bold;
+}
+#mensaje{text-align:center;margin-top:15px}
+#panel{display:none;margin-top:25px}
+.tabla-contenedor{overflow-x:auto}
+table{
+ width:100%;border-collapse:collapse;
+ min-width:550px;
+}
+th,td{
+ padding:12px;border-bottom:1px solid #ddd;
+ text-align:left;vertical-align:top;
+}
+th{background:#f9eeee;color:#9f1d28}
+</style>
+</head>
+<body>
+<div class="card">
+ <h1>MENAVET</h1>
+ <h2>Panel de administración</h2>
+
+ <form id="formulario">
+  <label for="password">Contraseña de administración</label>
+  <input id="password" type="password"
+   placeholder="Ingresa tu contraseña" required>
+  <button id="boton" type="submit">INGRESAR</button>
+ </form>
+
+ <div id="mensaje" role="status"></div>
+
+ <div id="panel">
+  <h2>🎁 Participantes del sorteo</h2>
+  <p id="total"></p>
+  <div class="tabla-contenedor">
+   <table>
+    <thead>
+     <tr>
+      <th>Participante</th>
+      <th>Destinatario</th>
+      <th>Lista de deseos</th>
+     </tr>
+    </thead>
+    <tbody id="filas"></tbody>
+   </table>
+  </div>
+ </div>
+</div>
+
+<script>
+const formulario = document.getElementById("formulario");
+const boton = document.getElementById("boton");
+const mensaje = document.getElementById("mensaje");
+const panel = document.getElementById("panel");
+const filas = document.getElementById("filas");
+
+formulario.addEventListener("submit", async function(event){
+ event.preventDefault();
+
+ const password = document.getElementById("password").value;
+
+ boton.disabled = true;
+ boton.textContent = "CONSULTANDO...";
+ mensaje.textContent = "";
+ panel.style.display = "none";
+ filas.replaceChildren();
+
+ try{
+  const respuesta = await fetch("/api/admin", {
+   method:"POST",
+   headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({password})
+  });
+
+  const datos = await respuesta.json();
+
+  if(!respuesta.ok){
+   throw new Error(datos.error || "No se pudo ingresar.");
+  }
+
+  datos.participantes.forEach(persona => {
+   const fila = document.createElement("tr");
+
+   const nombre = document.createElement("td");
+   nombre.textContent = persona.nombre;
+
+   const destinatario = document.createElement("td");
+   destinatario.textContent = persona.destinatario;
+
+   const deseos = document.createElement("td");
+   deseos.textContent = persona.lista_deseos || "Sin lista";
+
+   fila.append(nombre,destinatario,deseos);
+   filas.appendChild(fila);
+  });
+
+  document.getElementById("total").textContent =
+   "Participantes registrados: " + datos.participantes.length;
+
+  panel.style.display = "block";
+  mensaje.textContent = "Acceso correcto.";
+
+ }catch(error){
+  mensaje.textContent = error.message ||
+   "Ocurrió un error. Intentá nuevamente.";
+ }finally{
+  boton.disabled = false;
+  boton.textContent = "INGRESAR";
+ }
+});
+</script>
+</body>
+</html>
