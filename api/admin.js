@@ -47,7 +47,13 @@ module.exports = async (req, res) => {
       ]);
 
     if (!participantesResp.ok || !asignacionesResp.ok) {
-      throw new Error("No se pudieron consultar los datos");
+  const errorParticipantes = await participantesResp.text();
+  const errorAsignaciones = await asignacionesResp.text();
+
+  console.error("Participantes:", participantesResp.status, errorParticipantes);
+  console.error("Asignaciones:", asignacionesResp.status, errorAsignaciones);
+
+  throw new Error("No se pudieron consultar los datos");
     }
 
     const participantes = await participantesResp.json();
